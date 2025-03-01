@@ -244,12 +244,12 @@ configure_sudo() {
 
     # Allow user to run sudo without password. Since AUR programs must be installed
     # in a fakeroot environment, this is required for all builds with AUR.
-    if [ "$Distro" == "arch" ]; then
+    if [ "$DISTRO" == "arch" ]; then
         
         # Ensure %wheel is enabled in sudoers
-        # if [ "$(sudo grep -cE "^%wheel\s+ALL=\(ALL:ALL\)\s+ALL" /etc/sudoers)" -eq 0 ]; then
+        if [ "$(sudo grep -cE "^%wheel\s+ALL=\(ALL:ALL\)\s+ALL" /etc/sudoers)" -eq 0 ]; then
         echo "%wheel ALL=(ALL:ALL) ALL" | sudo EDITOR='tee -a' visudo
-        # fi
+        fi
 
         trap 'rm -f /etc/sudoers.d/larbs-temp' HUP INT QUIT TERM PWR EXIT
         echo "%wheel ALL=(ALL) NOPASSWD: ALL
@@ -275,13 +275,22 @@ use_all_cores() {
 }
 
 rustup() {
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-    . "$HOME/.cargo/env"
+    # Rustup must be run from the created user
+    sudo -u "$name" -H bash -c "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y"
+
+    # . "/home/$name/.cargo/env"
 
     if [ "$DISTRO" == "arch" ]; then 
-        # cargo install paru
-        cargo install --git https://github.com/Morganamilo/paru.git # using git and not `cargo install paru` as it has a currently broken install script, 
+        # using git and not `cargo install paru` as it has a currently broken install script, 
         # it is trying to fetch dependency versions incompatible with each other. should be modified when this is fixed
+        # also, all cargo installs must be done by the user
+        sudo -u "$name" -H bash -c "
+            if [ -f \"\$HOME/.cargo/env\" ]; then
+                . \"\$HOME/.cargo/env\"
+            fi
+            cargo install --git https://github.com/Morganamilo/paru.git
+        "
+
     fi
 }
 
@@ -313,7 +322,16 @@ maininstall() {
 cargoinstall() {
 	whiptail --title "TRAG Installation" \
 		--infobox "Installing \`$1\` ($n of $total) from Cargo. $1 $2" 9 70
-	cargo install "$1" $2
+
+	# cargo install "$1" $2 does not work here as we must run cargo installs from the user, not as root.
+    sudo -u "$name" -H bash -c "
+        if [ -f \"\$HOME/.cargo/env\" ]; then
+            . \"\$HOME/.cargo/env\"
+        fi
+        cargo install \"$1\" $2
+    "
+
+
 }
 
 pipinstall() {
@@ -331,8 +349,8 @@ aurinstall() {
 }
 
 primary_install_loop() {
-    csvfile="$1"  # The CSV file path
-    distro="$DISTRO"  # Make sure this is set from your detect_distro function!
+    local csvfile="$1"  # The CSV file path
+    local distro="$DISTRO"  # Make sure this is set from your detect_distro function!
     
     # Read the CSV, skipping the header line
     tail -n +2 "$csvfile" | while IFS=, read -r tag common_name arch_name debian_name alpine_name options description; do
@@ -470,7 +488,8 @@ install_server() {
     use_all_cores || error "Error trying to enable all cores for compilation"
 
     # Install rust
-    rustup || error "Error doing rustup"
+    # rustup || error "Error doing rustup"
+    rustup
 
     # Install primary packages
     primary_install_loop "$(dirname "$0")/packages_server_common.csv" || error "Error installing common server packages"

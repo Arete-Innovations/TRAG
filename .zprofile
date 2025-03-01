@@ -5,6 +5,7 @@
 
 # Add all directories in `~/.local/bin` to $PATH
 export PATH="$PATH:$(find ~/.local/bin -type d | paste -sd ':' -)"
+export PATH="$PATH:$HOME/.cargo/bin"
 
 unsetopt PROMPT_SP 2>/dev/null
 

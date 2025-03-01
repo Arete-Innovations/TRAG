@@ -84,7 +84,7 @@ create_user() {
     # Create user and set up group/shell
     if [ "$DISTRO" == "arch" ]; then
         useradd -m -g "$SUDO_GROUP" -s /bin/zsh "$USERNAME" >/dev/null 2>&1 ||
-            usermod -aG "$SUDO_GROUP" "$USERNAME"
+        usermod -aG "$SUDO_GROUP" "$USERNAME"
     elif [ "$DISTRO" == "debian" ] || [ "$DISTRO" == "ubuntu" ]; then
         adduser --disabled-password --gecos "" "$USERNAME"
         usermod -aG "$SUDO_GROUP" "$USERNAME"
@@ -119,11 +119,11 @@ getinstalltype() {
     if [ "$DISTRO" == "arch" ]; then 
         # Arch users must choose between Server or User Install
         install_type=$(whiptail --title "Installation Type" --menu "Choose installation type" 15 60 2 \
-            "1" "Server Install" \
-            "0" "User Install" 3>&1 1>&2 2>&3)
+            "0" "Server Install" \
+            "1" "User Install" 3>&1 1>&2 2>&3)
     else
         # Default to Server Install for all other distros
-        install_type=1
+        install_type=0
     fi
 }
 
@@ -147,7 +147,6 @@ refresh_keys() {
             # chown -R root:root /etc/pacman.d/gnupg
             # chmod 700 /etc/pacman.d/gnupg
             pacman-key --init
-            echo "AJUNG AICI"
             pacman-key --populate archlinux
             pacman --noconfirm -Sy archlinux-keyring >/dev/null 2>&1
             pacman --noconfirm -Su >/dev/null 2>&1
@@ -196,7 +195,6 @@ install_package() {
     esac
 }
 
-# TODO: move base devel as it is not the same for all
 install_mandatory_dependencies() {
     if [ "$DISTRO" == "debian" ] || [ "$DISTRO" == "ubuntu"]; then
         apt update
@@ -220,7 +218,6 @@ install_mandatory_dependencies() {
             ;;
     esac
 
-    # base-devel
     for x in curl ca-certificates git ntp zsh dash; do
 	    whiptail --title "TRAG Installation" \
 		    --infobox "Installing \`$x\` which is required to install and configure other programs." 8 70
@@ -247,7 +244,13 @@ configure_sudo() {
 
     # Allow user to run sudo without password. Since AUR programs must be installed
     # in a fakeroot environment, this is required for all builds with AUR.
-    if [ "$Distro" == "arch"]; then
+    if [ "$Distro" == "arch" ]; then
+        
+        # Ensure %wheel is enabled in sudoers
+        # if [ "$(sudo grep -cE "^%wheel\s+ALL=\(ALL:ALL\)\s+ALL" /etc/sudoers)" -eq 0 ]; then
+        echo "%wheel ALL=(ALL:ALL) ALL" | sudo EDITOR='tee -a' visudo
+        # fi
+
         trap 'rm -f /etc/sudoers.d/larbs-temp' HUP INT QUIT TERM PWR EXIT
         echo "%wheel ALL=(ALL) NOPASSWD: ALL
         Defaults:%wheel,root runcwd=*" >/etc/sudoers.d/larbs-temp
@@ -332,14 +335,15 @@ primary_install_loop() {
     distro="$DISTRO"  # Make sure this is set from your detect_distro function!
     
     # Read the CSV, skipping the header line
-    tail -n +2 "$csvfile" | while IFS=, read -r tag common_name arch_name debian_name alpine_name options; do
+    tail -n +2 "$csvfile" | while IFS=, read -r tag common_name arch_name debian_name alpine_name options description; do
         # Trim potential whitespace
         tag=$(echo "$tag" | xargs)
         common_name=$(echo "$common_name" | xargs)
         arch_name=$(echo "$arch_name" | xargs)
         debian_name=$(echo "$debian_name" | xargs)
         alpine_name=$(echo "$alpine_name" | xargs)
-        
+        description=$(echo "$description" | xargs)
+
         # Select the package name based on distro
         case "$distro" in
             arch)
@@ -357,7 +361,7 @@ primary_install_loop() {
                 ;;
         esac
 
-        echo "installing $common_name"
+        echo "installing $common_name $description"
 
         # Call the appropriate install function based on the tag
         case "$tag" in
@@ -373,11 +377,14 @@ primary_install_loop() {
             "M")
                 maininstall "$package_name" "$options" >/dev/null 2>&1
                 ;;
+            "A")
+                aurinstall "$package_name" "$options" >/dev/null 2>&1
+                ;;
             *)
                 echo "Unknown tag '$tag' for $common_name. Skipping..."
                 ;;
         esac
-        echo "installed $common_name"
+        # echo "installed $common_name"
     done
 }
 
@@ -404,18 +411,23 @@ nvim_install() {
 	# make hexokinase >/dev/null 2>&1
 
     cd $pwd_address
-    # echo "$(pwd)"
 }
 
 zsh_config() {
-    echo "configuring nvim"
+    echo "putting dotfiles"
+
+    chsh -s /bin/zsh "$name" >/dev/null 2>&1
+    sudo -u "$name" mkdir -p "/home/$name/.cache/zsh/"
+    sudo -u "$name" mkdir -p "/home/$name/.config/abook/"
+    sudo -u "$name" mkdir -p "/home/$name/.config/mpd/playlists/"
+
     cp "./.xprofile" "/home/$name/"
     cp "./.zprofile" "/home/$name/"
     cp "./.zshrc" "/home/$name/"
 }
 
-### Main script execution
-main() {
+### Base (server) install script execution
+install_server() {
     # Detect the distribution
     detect_distro || error "User exited."
 
@@ -460,15 +472,49 @@ main() {
     # Install rust
     rustup || error "Error doing rustup"
 
+    # Install primary packages
     primary_install_loop "$(dirname "$0")/packages_server_common.csv" || error "Error installing common server packages"
 
+    # Install bun
     bun_install || error "Error installing bun"
 
+    # Install nvim & configure it
     nvim_install || error "Error installing nvim"
 
+    # Final zsh configuration
     zsh_config || error "Error configuring zsh"
 
-    echo "Installation completed for $DISTRO."
+    echo "Server Installation completed for $DISTRO."
+}
+
+user_install() {
+    # Install GUI and other user packages
+    primary_install_loop "$(dirname "$0")/packages_client_arch.csv" || error "Error installing user packages"
+}
+
+restore_sudo() {
+    if [ "$Distro" == "arch" ]; then
+        # Remove the temporary sudoers file that allowed passwordless sudo
+        rm -f /etc/sudoers.d/larbs-temp
+        # Clear the trap that was set up to ensure the file was removed on exit
+        trap - HUP INT QUIT TERM PWR EXIT
+    fi
+}
+
+cleanup() {
+    restore_sudo   
+}
+
+main() {
+    install_server
+
+    echo "$install_type"
+
+    if [ "$install_type" == "1" ]; then 
+        user_install
+    fi
+
+    cleanup
 }
 
 # Run the main function

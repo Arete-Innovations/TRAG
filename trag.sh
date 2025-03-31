@@ -509,9 +509,18 @@ install_server() {
     echo "Server Installation completed for $DISTRO."
 }
 
+configure_videoserver() {
+    sudo -u "$name" mkdir -p "/home/$name/.config/x11"
+
+    sudo -u "$name" cp "./xinitrc" "/home/$name/.config/x11/"
+    sudo -u "$name" cp "./xprofile" "/home/$name/.config/x11/"
+}
+
 user_install() {
     # Install GUI and other user packages
     primary_install_loop "$(dirname "$0")/packages_client_arch.csv" || error "Error installing user packages"
+
+    configure_videoserver
 }
 
 restore_sudo() {

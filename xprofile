@@ -1,0 +1,15 @@
+#!/bin/sh
+
+xrandr --dpi 96        # Set DPI. User may want to use a larger number for larger screens.
+./.screenlayout/lay.sh    # Set monitor layout. This is a script that uses xrandr to set the monitor layout.
+sleep 1            # Wait for the monitors to be set up before setting the background.
+setbg &            # set the background with the `setbg` script
+
+
+autostart="mpd xcompmgr dunst unclutter pulseaudio remapd"
+
+for program in $autostart; do
+    pidof -sx "$program" || "$program" &
+done >/dev/null 2>&1
+
+[ -n "$xrdbpid" ] && wait "$xrdbpid"

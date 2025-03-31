@@ -65,7 +65,7 @@ prompt_char="%F{white} %f"
 PROMPT=${prompt_top}${prompt_host}${transition_bluewhite}${transition_whiteblue}${prompt_dir}${transition_bluewhite}${transition_whitecyan}'%K{cyan}%F{black}${vcs_info_msg_0_}${psvar[1]}${transition_cyanred}${prompt_returncode}${prompt_exectime}${transition_yellowblue}${prompt_temp}
 '${prompt_bottom}${prompt_user}${transition_bluewhite}${transition_whiteblack}${prompt_char}
 
-alias ls='lsd'
+# alias ls='lsd'
 alias l='ls -l'
 alias la='ls -a'
 alias lla='ls -la'

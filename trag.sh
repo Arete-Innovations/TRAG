@@ -277,6 +277,7 @@ use_all_cores() {
 rustup() {
     # Rustup must be run from the created user
     sudo -u "$name" -H bash -c "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y"
+    su - "$name" -c "echo 'export PATH=\"\$HOME/.cargo/bin:\$PATH\"' >> ~/.zshrc"
 
     # . "/home/$name/.cargo/env"
 
@@ -417,10 +418,10 @@ nvim_install() {
     echo "installing nvim"
     export PATH="/root/.cargo/bin/bob:$PATH"
 
-    bob use latest
-    export PATH="/root/.local/share/bob/nvim-bin:$PATH"
+    su - "$name" -c "echo 'export PATH=\"\$HOME/.local/share/bob/nvim-bin:\$PATH\"' >> ~/.zshrc"
+    su - "$name" -c "bob use latest"
 
-    mkdir -p /home/$name/.config/nvim
+    sudo -u "$name" mkdir -p "/home/$name/.config/nvim"
     local pwd_address="$(pwd)"
     cd /home/$name/.config/nvim
 
@@ -435,13 +436,14 @@ zsh_config() {
     echo "putting dotfiles"
 
     chsh -s /bin/zsh "$name" >/dev/null 2>&1
+
     sudo -u "$name" mkdir -p "/home/$name/.cache/zsh/"
     sudo -u "$name" mkdir -p "/home/$name/.config/abook/"
     sudo -u "$name" mkdir -p "/home/$name/.config/mpd/playlists/"
 
-    cp "./.xprofile" "/home/$name/"
-    cp "./.zprofile" "/home/$name/"
-    cp "./.zshrc" "/home/$name/"
+    sudo -u "$name" cp "./.xprofile" "/home/$name/"
+    sudo -u "$name" cp "./.zprofile" "/home/$name/"
+    sudo -u "$name" cp "./.zshrc" "/home/$name/"
 }
 
 ### Base (server) install script execution
@@ -487,6 +489,9 @@ install_server() {
     # Enable all cores for compilation
     use_all_cores || error "Error trying to enable all cores for compilation"
 
+    # Final zsh configuration
+    zsh_config || error "Error configuring zsh"
+
     # Install rust
     # rustup || error "Error doing rustup"
     rustup
@@ -500,15 +505,22 @@ install_server() {
     # Install nvim & configure it
     nvim_install || error "Error installing nvim"
 
-    # Final zsh configuration
-    zsh_config || error "Error configuring zsh"
 
     echo "Server Installation completed for $DISTRO."
+}
+
+configure_videoserver() {
+    sudo -u "$name" mkdir -p "/home/$name/.config/x11"
+
+    sudo -u "$name" cp "./xinitrc" "/home/$name/.config/x11/"
+    sudo -u "$name" cp "./xprofile" "/home/$name/.config/x11/"
 }
 
 user_install() {
     # Install GUI and other user packages
     primary_install_loop "$(dirname "$0")/packages_client_arch.csv" || error "Error installing user packages"
+
+    configure_videoserver
 }
 
 restore_sudo() {

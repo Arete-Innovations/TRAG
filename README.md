@@ -9,7 +9,7 @@ Please make sure your keyring is valid before running.
 
 Supported Distributions:
 1. Arch - Fully implemented
-2. Debian - In development
+2. Debian - In development | Should work
 3. Alpine - Planned
 
 ---

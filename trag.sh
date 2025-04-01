@@ -228,7 +228,25 @@ install_mandatory_dependencies() {
 sync_sys_time() {
     whiptail --title "TRAG Installation" \
 	    --infobox "Synchronizing system time to ensure successful and secure installation of software..." 8 70
-    ntpd -q -g >/dev/null 2>&1
+
+    if [ "$DISTRO" == "arch" ]; then
+        ntpd -q -g >/dev/null 2>&1
+    elif [ "$DISTRO" == "debian" ] || [ "$DISTRO" == "ubuntu" ]; then
+        echo "[Debian] Stopping time services..."
+        
+        systemctl stop systemd-timesyncd 2>/dev/null || true
+        systemctl stop chronyd 2>/dev/null || true
+        systemctl stop ntp 2>/dev/null || true
+
+        ntpd -q -g
+
+        systemctl start systemd-timesyncd 2>/dev/null || true
+        systemctl start chronyd 2>/dev/null || true
+        systemctl start ntp 2>/dev/null || true
+
+    elif [ "$DISTRO" == "alpine" ]; then
+        echo "Alpine in development"
+    fi 
 }
 
 configure_sudo() {

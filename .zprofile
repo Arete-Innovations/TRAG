@@ -6,6 +6,7 @@
 # Add all directories in `~/.local/bin` to $PATH
 export PATH="$PATH:$(find ~/.local/bin -type d | paste -sd ':' -)"
 export PATH="$PATH:$HOME/.cargo/bin"
+export PATH="$PATH:$HOME/.local/share/bob/nvim-bin"
 
 unsetopt PROMPT_SP 2>/dev/null
 

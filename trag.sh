@@ -105,7 +105,7 @@ create_user() {
     chown -R "$USERNAME:$SUDO_GROUP" "$(dirname "$repodir")"
 
     # FOR VM TESTING
-    sudo usermod -aG vboxsf $USERNAME
+    # sudo usermod -aG vboxsf $USERNAME
 
     # Set password
     echo "$USERNAME:$PASSWORD" | chpasswd

@@ -7,14 +7,16 @@
 export PATH="$PATH:$(find ~/.local/bin -type d | paste -sd ':' -)"
 export PATH="$PATH:$HOME/.cargo/bin"
 export PATH="$PATH:$HOME/.local/share/bob/nvim-bin"
+export BUN_INSTALL="$HOME/.bun:$PATH"
+export PATH="$BUN_INSTALL/bin:$PATH"
 
 unsetopt PROMPT_SP 2>/dev/null
 
 # Default programs:
 export EDITOR="nvim"
-export TERMINAL="st"
-export TERMINAL_PROG="st"
-export BROWSER="librewolf"
+export TERMINAL="alacritty"
+export TERMINAL_PROG="alacritty"
+export BROWSER="firefox"
 
 # Change the default crypto/weather monitor sites.
 # export CRYPTOURL="rate.sx"
@@ -30,7 +32,6 @@ export NOTMUCH_CONFIG="$XDG_CONFIG_HOME/notmuch-config"
 export GTK2_RC_FILES="$XDG_CONFIG_HOME/gtk-2.0/gtkrc-2.0"
 export WGETRC="$XDG_CONFIG_HOME/wget/wgetrc"
 export INPUTRC="$XDG_CONFIG_HOME/shell/inputrc"
-export ZDOTDIR="$XDG_CONFIG_HOME/zsh"
 #export GNUPGHOME="$XDG_DATA_HOME/gnupg"
 export WINEPREFIX="$XDG_DATA_HOME/wineprefixes/default"
 export KODI_DATA="$XDG_DATA_HOME/kodi"

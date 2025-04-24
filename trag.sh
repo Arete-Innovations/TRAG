@@ -2,6 +2,7 @@
 
 # Define list of packages to install
 aurhelper="paru"
+vimrepo="https://github.com/tragdate/soyvim.git"
 
 error() {
 	# Log to stderr and exit with failure.
@@ -103,6 +104,9 @@ create_user() {
     mkdir -p "$repodir"
     chown -R "$USERNAME:$SUDO_GROUP" "$(dirname "$repodir")"
 
+    # FOR VM TESTING
+    sudo usermod -aG vboxsf $USERNAME
+
     # Set password
     echo "$USERNAME:$PASSWORD" | chpasswd
 }
@@ -196,9 +200,9 @@ install_package() {
 }
 
 install_mandatory_dependencies() {
-    if [ "$DISTRO" == "debian" ] || [ "$DISTRO" == "ubuntu"]; then
+    if [ "$DISTRO" == "debian" ] || [ "$DISTRO" == "ubuntu" ]; then
         apt update
-    elif [ "$DISTRO" == "alpine"]; then
+    elif [ "$DISTRO" == "alpine" ]; then
         apk update
     fi
 
@@ -218,7 +222,7 @@ install_mandatory_dependencies() {
             ;;
     esac
 
-    for x in curl ca-certificates git ntp zsh dash; do
+    for x in curl ca-certificates git ntp zsh; do
 	    whiptail --title "TRAG Installation" \
 		    --infobox "Installing \`$x\` which is required to install and configure other programs." 8 70
 	    install_package "$x"
@@ -265,17 +269,15 @@ configure_sudo() {
     if [ "$DISTRO" == "arch" ]; then
         
         # Ensure %wheel is enabled in sudoers
-        if [ "$(sudo grep -cE "^%wheel\s+ALL=\(ALL:ALL\)\s+ALL" /etc/sudoers)" -eq 0 ]; then
-        echo "%wheel ALL=(ALL:ALL) ALL" | sudo EDITOR='tee -a' visudo
-        fi
+        echo "%wheel ALL=(ALL:ALL) ALL" | EDITOR='tee -a' visudo
 
         trap 'rm -f /etc/sudoers.d/larbs-temp' HUP INT QUIT TERM PWR EXIT
         echo "%wheel ALL=(ALL) NOPASSWD: ALL
         Defaults:%wheel,root runcwd=*" >/etc/sudoers.d/larbs-temp
 
         # Make pacman colorful, concurrent downloads and Pacman eye-candy.
-        grep -q "ILoveCandy" /etc/pacman.conf || sed -i "/#VerbosePkgLists/a ILoveCandy" /etc/pacman.conf
-        sed -Ei "s/^#(ParallelDownloads).*/\1 = 5/;/^#Color$/s/#//" /etc/pacman.conf
+        # grep -q "ILoveCandy" /etc/pacman.conf || sed -i "/#VerbosePkgLists/a ILoveCandy" /etc/pacman.conf
+        # sed -Ei "s/^#(ParallelDownloads).*/\1 = 5/;/^#Color$/s/#//" /etc/pacman.conf
     fi
 }
 
@@ -294,10 +296,11 @@ use_all_cores() {
 
 rustup() {
     # Rustup must be run from the created user
-    sudo -u "$name" -H bash -c "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y"
-    su - "$name" -c "echo 'export PATH=\"\$HOME/.cargo/bin:\$PATH\"' >> ~/.zshrc"
+    sudo -u "$name" -H bash -c \
+    "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs |
+    sh -s -- -y --default-host x86_64-unknown-linux-gnu"
 
-    # . "/home/$name/.cargo/env"
+    . "/home/$name/.cargo/env"
 
     if [ "$DISTRO" == "arch" ]; then 
         # using git and not `cargo install paru` as it has a currently broken install script, 
@@ -434,18 +437,17 @@ bun_install() {
 
 nvim_install() {
     echo "installing nvim"
-    export PATH="/root/.cargo/bin/bob:$PATH"
 
-    su - "$name" -c "echo 'export PATH=\"\$HOME/.local/share/bob/nvim-bin:\$PATH\"' >> ~/.zshrc"
-    su - "$name" -c "bob use latest"
+    su - "$name" -c 'PATH="/home/$name/.cargo/bin/bob:$PATH" bob use latest'
 
     sudo -u "$name" mkdir -p "/home/$name/.config/nvim"
-    local pwd_address="$(pwd)"
-    cd /home/$name/.config/nvim
+    # local pwd_address="$(pwd)"
+    # cd /home/$name/.config/nvim
 
 	git clone --depth 1 "$vimrepo" "/home/$name/.config/nvim" >/dev/null 2>&1
-	# cd "/home/$name/.local/share/nvim/lazy/vim-hexokinase"
-	# make hexokinase >/dev/null 2>&1
+    local pwd_address="$(pwd)"
+	cd "/home/$name/.local/share/nvim/lazy/vim-hexokinase"
+	make hexokinase >/dev/null 2>&1
 
     cd $pwd_address
 }
@@ -453,15 +455,19 @@ nvim_install() {
 zsh_config() {
     echo "putting dotfiles"
 
-    chsh -s /bin/zsh "$name" >/dev/null 2>&1
+    chsh -s /usr/bin/zsh "$name" >/dev/null 2>&1
+    echo "/usr/bin/zsh" >> /etc/shells
+    echo "/bin/zsh" >> /etc/shells
 
     sudo -u "$name" mkdir -p "/home/$name/.cache/zsh/"
     sudo -u "$name" mkdir -p "/home/$name/.config/abook/"
     sudo -u "$name" mkdir -p "/home/$name/.config/mpd/playlists/"
+    sudo -u "$name" mkdir -p "/home/$name/.config/zsh/"
 
-    sudo -u "$name" cp "./.xprofile" "/home/$name/"
-    sudo -u "$name" cp "./.zprofile" "/home/$name/"
-    sudo -u "$name" cp "./.zshrc" "/home/$name/"
+    sudo -u "$name" cp "./.xprofile" "/home/$name/.config/zsh"
+    sudo -u "$name" cp "./.zprofile" "/home/$name/.config/zsh"
+    sudo -u "$name" cp "./.zshrc" "/home/$name/.config/zsh"
+    sudo -u "$name" cp "./.zshenv" "/home/$name/"
 }
 
 ### Base (server) install script execution
@@ -542,7 +548,7 @@ user_install() {
 }
 
 restore_sudo() {
-    if [ "$Distro" == "arch" ]; then
+    if [ "$DISTRO" == "arch" ]; then
         # Remove the temporary sudoers file that allowed passwordless sudo
         rm -f /etc/sudoers.d/larbs-temp
         # Clear the trap that was set up to ensure the file was removed on exit

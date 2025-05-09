@@ -1,5 +1,5 @@
 #TAG,COMMON NAME (used in script),Arch name,Debian name,Alpine name,Options,Description
-M,postgresql,postgresql,postgresql,"An advanced open source relational database system."
+M,postgresql,postgresql,postgresql,postgresql,"An advanced open source relational database system."
 M,,libpq-dev,,"Libs for compiling psql stuff."
 M,build-essential,base-devel,build-essential,build-base,,"Core development tools required for compiling software."
 M,golang,go,golang,go,,"The Go programming language for efficient software development."
